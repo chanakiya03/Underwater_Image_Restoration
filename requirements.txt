@@ -1,0 +1,16 @@
+# Core web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# Image processing (use precompiled wheels)
+numpy>=1.23.0,<1.27.0
+opencv-python>=4.8.0
+
+# Deep learning (PyTorch - large download ~2GB)
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=0.9.0
+
+# Image library
+Pillow>=10.0.0

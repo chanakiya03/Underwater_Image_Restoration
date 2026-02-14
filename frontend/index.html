@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea-Thru: Underwater Image Color Recovery</title>
+    <meta name="description" content="Physics-based underwater image color recovery using the Sea-Thru algorithm">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Sea-Thru</h1>
+            <p>Physics-based Underwater Image Color Recovery</p>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <div class="glass-card">
+                    <input type="file" id="imageInput" accept="image/*" hidden aria-label="Upload underwater image">
+                    <label for="imageInput" class="upload-label">
+                        <div class="upload-icon">🌊</div>
+                        <span>Choose an underwater image</span>
+                        <small style="color: #94a3b8; margin-top: 0.5rem;">JPG, PNG, BMP, or TIFF (max 10MB)</small>
+                    </label>
+                    <button id="processBtn" disabled aria-label="Process image">Process Image</button>
+                    <div id="loader" class="hidden">
+                        <div class="spinner"></div>
+                        <p>Restoring colors...</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="results-section hidden" id="results">
+                <div class="comparison-grid">
+                    <div class="result-card">
+                        <h3>Original</h3>
+                        <img id="originalImg" src="" alt="Original underwater image">
+                    </div>
+                    <div class="result-card">
+                        <h3>Enhanced</h3>
+                        <img id="enhancedImg" src="" alt="Enhanced color-corrected image">
+                    </div>
+                </div>
+                <div class="actions">
+                    <p id="processingTime" style="color: #94a3b8; margin-bottom: 1rem;"></p>
+                    <a id="downloadBtn" href="#" download="enhanced_image.png">⬇️ Download Result</a>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
