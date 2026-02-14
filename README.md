@@ -279,3 +279,6 @@ run batch_process.py
       like this in test.jpg image path 
 
   2:output image path: example : "D:\projects\robust_underwater_app\backend\d_image_enhanced"  like this but you path d_image_enhanced folder path 
+
+
+###
