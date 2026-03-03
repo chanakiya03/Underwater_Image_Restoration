@@ -148,7 +148,7 @@ def estimate_attenuation_coefficients(img, depth, B_inf, num_bins=10):
     
     return beta
 
-def recover_colors(img, depth, B_inf, illuminant, beta):
+def recover_colors(img, depth, B_inf, illuminant, beta, red_factor=None, sat_boost=None):
     """
     Recover true scene colors with aggressive warm tone enhancement.
     Matches reference underwater enhancement outputs.
@@ -159,10 +159,17 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
         B_inf: Backscatter (BGR)
         illuminant: Illuminant normalization (BGR)
         beta: Attenuation coefficients (BGR)
+        red_factor: Custom red compensation multiplier
+        sat_boost: Custom saturation boost multiplier
     
     Returns:
         recovered: Enhanced image with natural warm tones
     """
+    if red_factor is None:
+        red_factor = 0.35  # Default refined multiplier
+    if sat_boost is None:
+        sat_boost = config.SATURATION_BOOST
+        
     img_float = img.astype(np.float32) / 255.0
     
     # Step 1: Optional Super-Resolution
@@ -177,9 +184,16 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
     
     depth_factor = np.clip(depth, 0, 1)
     
-    # Conservative red channel restoration
-    # Reference (f) shows natural but not overly warm tones
-    red_compensated = red_channel + (green_channel - red_channel) * depth_factor * 0.45
+    # Exponential decay for red compensation to prevent leaking into background haze
+    # Only boost red in the foreground (0 < depth < 0.6)
+    decay_factor = np.exp(-depth_factor * 3.5) # Fast decay for red boost
+    red_boost = (green_channel - red_channel) * red_factor * decay_factor
+    
+    # Apply luminance-based protection for highlights
+    gray_float = cv2.cvtColor((img_float * 255).astype(np.uint8), cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+    protection_mask = np.clip((gray_float - 0.75) * 4.0, 0, 1) 
+    
+    red_compensated = red_channel + red_boost * (1.0 - protection_mask)
     red_compensated = np.clip(red_compensated, 0, 1)
     
     # Subtle blue reduction - maintain natural underwater look
@@ -203,8 +217,8 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
         scale_g = avg_intensity / (mean_g + 1e-6)
         scale_r = avg_intensity / (mean_r + 1e-6)
         
-        # Light blending - reference (f) shows subtle correction
-        blend = 0.4
+        # Conservative blending to avoid "plastic" look
+        blend = 0.25
         enhanced[:, :, 0] = np.clip(enhanced[:, :, 0] * (scale_b * blend + (1 - blend)), 0, 1)
         enhanced[:, :, 1] = np.clip(enhanced[:, :, 1] * (scale_g * blend + (1 - blend)), 0, 1)
         enhanced[:, :, 2] = np.clip(enhanced[:, :, 2] * (scale_r * blend + (1 - blend)), 0, 1)
@@ -213,12 +227,14 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
     enhanced_uint8 = (enhanced * 255).astype(np.uint8)
     
     # Step 5: Advanced Denoising
+    # Round 4: Extremely subtle cleanup to preserve natural film/sensor grain
     if config.ADVANCED_DENOISING:
-        denoised = cv2.fastNlMeansDenoisingColored(enhanced_uint8, None, 10, 10, 7, 21)
+        # Reduced d and sigma to avoid "blobs"
+        denoised = cv2.bilateralFilter(enhanced_uint8, d=3, sigmaColor=30, sigmaSpace=30)
         enhanced = denoised.astype(np.float32) / 255.0
     else:
-        denoised = cv2.bilateralFilter(enhanced_uint8, d=9, sigmaColor=75, sigmaSpace=75)
-        enhanced = denoised.astype(np.float32) / 255.0
+        # If disabled but requested, use even lighter cleanup
+        enhanced = enhanced_uint8.astype(np.float32) / 255.0
     
     # Step 6: Brightness Adjustment
     # Reference (f) shows subtle, natural brightness
@@ -230,8 +246,8 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
         enhanced_uint8 = (enhanced * 255).astype(np.uint8)
         lab = cv2.cvtColor(enhanced_uint8, cv2.COLOR_BGR2LAB)
         
-        # Gentle contrast - reference (f) shows natural contrast
-        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        # More conservative CLAHE to avoid "glow" artifacts on sand/edges
+        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
         lab[:, :, 0] = clahe.apply(lab[:, :, 0])
         
         enhanced_uint8 = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
@@ -240,9 +256,11 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
     # Step 8: Detail Enhancement
     if config.DETAIL_ENHANCEMENT:
         enhanced_uint8 = (enhanced * 255).astype(np.uint8)
-        gaussian = cv2.GaussianBlur(enhanced_uint8, (0, 0), 2.0)
-        enhanced_detail = cv2.addWeighted(enhanced_uint8, 1.5, gaussian, -0.5, 0)
-        enhanced_uint8 = cv2.addWeighted(enhanced_uint8, 0.4, enhanced_detail, 0.6, 0)
+        # Subtle detail boost
+        gaussian = cv2.GaussianBlur(enhanced_uint8, (0, 0), 1.0)
+        detail_layer = cv2.addWeighted(enhanced_uint8, 1.0, gaussian, -1.0, 0)
+        
+        enhanced_uint8 = cv2.addWeighted(enhanced_uint8, 1.0, detail_layer, 0.2, 0) # Reduced weight
         enhanced = enhanced_uint8.astype(np.float32) / 255.0
     
     # Step 9: Edge Sharpening
@@ -266,7 +284,7 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
         hsv = cv2.cvtColor(enhanced_uint8, cv2.COLOR_BGR2HSV).astype(np.float32)
         
         # Boost saturation for vibrant colors
-        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * config.SATURATION_BOOST, 0, 255)
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * sat_boost, 0, 255)
         
         enhanced = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR).astype(np.float32) / 255.0
     
@@ -276,13 +294,15 @@ def recover_colors(img, depth, B_inf, illuminant, beta):
     
     return recovered
 
-def sea_thru_pipeline(img, depth):
+def sea_thru_pipeline(img, depth, red_factor=None, sat_boost=None):
     """
     Complete Sea-Thru pipeline for underwater image restoration.
     
     Args:
         img: BGR image
         depth: Depth map [0=close, 1=far]
+        red_factor: Custom red compensation multiplier
+        sat_boost: Custom saturation boost multiplier
     
     Returns:
         enhanced: Restored image
@@ -301,6 +321,6 @@ def sea_thru_pipeline(img, depth):
     print(f"  - Illuminant (BGR): {illuminant}")
     
     print("  - Recovering colors...")
-    recovered = recover_colors(img, depth, B_inf, illuminant, beta)
+    recovered = recover_colors(img, depth, B_inf, illuminant, beta, red_factor=red_factor, sat_boost=sat_boost)
     
     return recovered

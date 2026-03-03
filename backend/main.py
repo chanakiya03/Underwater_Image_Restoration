@@ -8,8 +8,10 @@ import shutil
 import uuid
 import time
 from pathlib import Path
+from typing import List
 from depth_estimation import DepthEstimator
 from sea_thru import sea_thru_pipeline
+from mosaicking import mosaicking_pipeline
 import config
 
 app = FastAPI(title="Sea-Thru Underwater Image Recovery API")
@@ -124,6 +126,66 @@ async def process_image(file: UploadFile = File(...)):
                 os.remove(path)
         
         error_msg = f"Processing failed: {str(e)}"
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@app.post("/mosaic")
+async def mosaic_images(files: List[UploadFile] = File(...)):
+    """Stitch multiple overlapping frames into a mosaic"""
+    start_time = time.time()
+    
+    if len(files) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 images are required for mosaicking")
+        
+    mosaic_id = str(uuid.uuid4())
+    temp_input_paths = []
+    
+    try:
+        # Save all uploaded files to temp paths
+        for idx, file in enumerate(files):
+            # Validate
+            is_valid, message = validate_file(file)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=f"File {idx+1}: {message}")
+            
+            ext = os.path.splitext(file.filename)[1].lower()
+            path = os.path.join(config.UPLOAD_DIR, f"{mosaic_id}_{idx}{ext}")
+            
+            with open(path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            temp_input_paths.append(path)
+            
+        # Run mosaicking pipeline
+        print(f"Starting mosaicking for {len(files)} images...")
+        mosaic_img, match_vis = mosaicking_pipeline(temp_input_paths)
+        
+        if mosaic_img is None:
+            raise ValueError("Stitching failed. Images might not have enough overlap.")
+            
+        # Save results
+        output_filename = f"mosaic_{mosaic_id}.jpg"
+        output_path = os.path.join(config.OUTPUT_DIR, output_filename)
+        cv2.imwrite(output_path, mosaic_img)
+        
+        match_vis_path = None
+        if match_vis is not None:
+            match_vis_filename = f"match_{mosaic_id}.jpg"
+            match_vis_path = os.path.join(config.OUTPUT_DIR, match_vis_filename)
+            cv2.imwrite(match_vis_path, match_vis)
+            
+        processing_time = time.time() - start_time
+        print(f"Mosaicking completed in {processing_time:.2f}s")
+        
+        return {
+            "success": True,
+            "mosaic": f"/outputs/{output_filename}",
+            "matching": f"/outputs/{os.path.basename(match_vis_path)}" if match_vis_path else None,
+            "processing_time": round(processing_time, 2)
+        }
+        
+    except Exception as e:
+        error_msg = f"Mosaicking failed: {str(e)}"
         print(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 

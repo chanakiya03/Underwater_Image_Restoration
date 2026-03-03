@@ -17,7 +17,13 @@
         </header>
 
         <main>
-            <section class="upload-section">
+            <div class="pipeline-switcher">
+                <button id="p1Tab" class="active">Restoration (P1)</button>
+                <button id="p2Tab">Mosaicking (P2)</button>
+            </div>
+
+            <!-- Pipeline 1: Restoration -->
+            <section id="p1Section" class="upload-section">
                 <div class="glass-card">
                     <input type="file" id="imageInput" accept="image/*" hidden aria-label="Upload underwater image">
                     <label for="imageInput" class="upload-label">
@@ -31,22 +37,56 @@
                         <p>Restoring colors...</p>
                     </div>
                 </div>
-            </section>
 
-            <section class="results-section hidden" id="results">
-                <div class="comparison-grid">
-                    <div class="result-card">
-                        <h3>Original</h3>
-                        <img id="originalImg" src="" alt="Original underwater image">
+                <div class="results-section hidden" id="results">
+                    <div class="comparison-grid">
+                        <div class="result-card">
+                            <h3>Original</h3>
+                            <img id="originalImg" src="" alt="Original underwater image">
+                        </div>
+                        <div class="result-card">
+                            <h3>Enhanced</h3>
+                            <img id="enhancedImg" src="" alt="Enhanced color-corrected image">
+                        </div>
                     </div>
-                    <div class="result-card">
-                        <h3>Enhanced</h3>
-                        <img id="enhancedImg" src="" alt="Enhanced color-corrected image">
+                    <div class="actions">
+                        <p id="processingTime" style="color: #94a3b8; margin-bottom: 1rem;"></p>
+                        <a id="downloadBtn" href="#" download="enhanced_image.png">⬇️ Download Result</a>
                     </div>
                 </div>
-                <div class="actions">
-                    <p id="processingTime" style="color: #94a3b8; margin-bottom: 1rem;"></p>
-                    <a id="downloadBtn" href="#" download="enhanced_image.png">⬇️ Download Result</a>
+            </section>
+
+            <!-- Pipeline 2: Mosaicking -->
+            <section id="p2Section" class="upload-section hidden">
+                <div class="glass-card">
+                    <input type="file" id="mosaicInput" accept="image/*" multiple hidden aria-label="Upload overlapping frames">
+                    <label for="mosaicInput" class="upload-label">
+                        <div class="upload-icon">🎞️</div>
+                        <span>Choose overlapping frames</span>
+                        <small style="color: #94a3b8; margin-top: 0.5rem;">Select 2+ images for stitching</small>
+                    </label>
+                    <button id="mosaicBtn" disabled aria-label="Stitch images">Stitch Images</button>
+                    <div id="mosaicLoader" class="hidden">
+                        <div class="spinner"></div>
+                        <p>Building mosaic...</p>
+                    </div>
+                </div>
+
+                <div class="results-section hidden" id="mosaicResults">
+                    <div class="mosaicking-display">
+                        <div class="result-card full-width">
+                            <h3>Wide-Field Seamless Mosaic</h3>
+                            <img id="mosaicImg" src="" alt="Stitched mosaic image">
+                        </div>
+                        <div class="result-card full-width">
+                            <h3>A-KAZE Keypoint Matching</h3>
+                            <img id="matchVisImg" src="" alt="Feature matching visualization">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <p id="mosaicProcessingTime" style="color: #94a3b8; margin-bottom: 1rem;"></p>
+                        <a id="mosaicDownloadBtn" href="#" download="mosaic_result.jpg">⬇️ Download Mosaic</a>
+                    </div>
                 </div>
             </section>
         </main>

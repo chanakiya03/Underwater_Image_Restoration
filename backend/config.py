@@ -37,9 +37,15 @@ CONTRAST_ALPHA = 1.1     # Moderate contrast enhancement
 
 # HD Quality Enhancement
 ENABLE_SUPER_RESOLUTION = False  # Enable 2x upscaling for 4K output (slower)
-ADVANCED_DENOISING = True        # Use non-local means denoising (better quality)
+ADVANCED_DENOISING = True        # Use conservative nl-means denoising
 DETAIL_ENHANCEMENT = True        # Enhance fine details and textures
 EDGE_SHARPENING = True          # Edge-aware sharpening for clarity
+
+# Mosaicking (A-KAZE) parameters
+AKAZE_THRESHOLD = 0.001
+AKAZE_OCTAVES = 4
+AKAZE_LAYERS = 4
+MAX_MATCHES = 100
 
 # Server settings
 HOST = "0.0.0.0"

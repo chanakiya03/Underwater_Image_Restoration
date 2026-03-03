@@ -57,8 +57,11 @@ def process_batch(input_folder, output_folder, params=None):
                 print(f"  [FAIL] Failed to read image")
                 continue
             
-            # Apply Sea-Thru enhancement
-            enhanced = sea_thru_pipeline(img, depth)
+            # Apply Sea-Thru enhancement with optional custom params
+            red_factor = params.get('red_factor') if params else None
+            sat_boost = params.get('sat_boost') if params else None
+            
+            enhanced = sea_thru_pipeline(img, depth, red_factor=red_factor, sat_boost=sat_boost)
             
             # Save result
             output_path = os.path.join(output_folder, f"enhanced_{img_path.name}")
